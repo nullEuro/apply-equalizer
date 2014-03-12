@@ -5,6 +5,8 @@
 import dbus, os
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GObject
+from subprocess import call
+from time import sleep
 from xdg.BaseDirectory import *
 
 config_dir = os.path.join(xdg_config_home, 'apply-equalizer')
@@ -12,6 +14,34 @@ if not os.path.isdir(config_dir):
 	os.mkdir(config_dir)
 
 eq_config_path = os.path.join(xdg_config_home, 'pulse', 'equalizerrc')
+
+def get_bus_address():
+	return dbus.SessionBus()\
+		.get_object(
+			'org.PulseAudio1', 
+			'/org/pulseaudio/server_lookup1'
+		).Get(
+			'org.PulseAudio.ServerLookup1',
+			'Address',
+			dbus_interface=dbus.PROPERTIES_IFACE
+		)
+
+
+def get_bus(srv_addr=None, restart_pulseaudio=True):
+	attempt=1
+	while not srv_addr:
+		try:
+			srv_addr = get_bus_address()
+			print('Got pa-server bus from dbus: {}'.format(srv_addr))
+		except dbus.exceptions.DBusException as err:
+			print(err)
+			if err.get_dbus_name() != 'org.freedesktop.DBus.Error.ServiceUnknown':
+				raise
+		attempt += 1
+		if attempt > 10 and restart_pulseaudio:
+			call (['pulseaudio', '-k'])
+		sleep(1)
+	return dbus.connection.Connection(srv_addr)
 
 
 def on_port_change(port_addr):
@@ -66,11 +96,7 @@ DBusGMainLoop(set_as_default=True)
 loop = GObject.MainLoop()
 
 # connect to pulseaudio dbus
-srv_addr = dbus.SessionBus().get_object(
-	'org.PulseAudio1', '/org/pulseaudio/server_lookup1')\
-	.Get('org.PulseAudio.ServerLookup1',
-	'Address', dbus_interface='org.freedesktop.DBus.Properties')
-bus = dbus.connection.Connection(srv_addr)
+bus = get_bus()
 core = bus.get_object(object_path='/org/pulseaudio/core1')
 
 # activate profile for current audio device and port
