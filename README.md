@@ -8,9 +8,20 @@ To use it you have to add the following line to `/etc/pulse/default.pa`:
 
     load-module module-dbus-protocol
 
+Restart pulseaudio: `pulseaudio -k` (as user)
+
 Then disable the equalizer via `pulseaudio-equalizer-gtk` and click on "Apply settings", now close the GUI.
 
-Execute `apply-equalizer.py` it as user (!). Maybe you need to install some additional python modules. Also you may want to automatically start it on login (I dont know what is the best way to do that).
+Download this repository, change to the directory and run
+
+    sudo make install
+	apply-equalizer
+
+Maybe you need to install some additional python modules.
+
+To uninstall, change to the directory where you downloaded the repository and run
+
+    sudo make clean
 
 ## Usage ##
 The script creates per-port [1] equalizer-configurations under `~/.config/apply-equalizer` and symlinks them if a device changes the output port (i.e. headphones plugged in or out).

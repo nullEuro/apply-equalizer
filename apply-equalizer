@@ -1,0 +1,11 @@
+#!/bin/bash
+NAME=apply-equalizer
+PIDFILE=/tmp/${NAME}_${USER}.pid
+LOGFILE=/tmp/${NAME}_${USER}.log
+
+if [ -f  $PIDFILE ] && PID=$(cat $PIDFILE) && kill -0 `cat $PIDFILE` 2>/dev/null; then
+	echo "Already running! PID=$PID"
+else
+	python3 "/usr/share/$NAME/$NAME.py" > $LOGFILE &
+	echo $! > $PIDFILE
+fi
