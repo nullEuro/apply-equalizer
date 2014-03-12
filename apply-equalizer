@@ -1,6 +1,6 @@
 #!/bin/bash
 NAME=apply-equalizer
-PIDFILE=/tmp/${NAME}_${USER}.pid
+PIDFILE=${HOME}/.${NAME}.pid
 LOGFILE=/tmp/${NAME}_${USER}.log
 
 if [ -f  $PIDFILE ] && PID=$(cat $PIDFILE) && kill -0 `cat $PIDFILE` 2>/dev/null; then
