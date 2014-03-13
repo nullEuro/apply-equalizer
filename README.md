@@ -1,7 +1,17 @@
 apply-equalizer
 ===============
 
-python programm that activates or deactivates pulseaudio-equalizer based on output port (headphones or speakers)
+A python programm that activates or deactivates pulseaudio-equalizer based on output port (headphones or speakers).
+
+## Why ? ##
+
+It started on [pulseaudio - Automatically switch equalizer preset based on audio output (internal speaker or external) - Ask Ubuntu](http://askubuntu.com/questions/402275/automatically-switch-equalizer-preset-based-on-audio-output-internal-speaker-or)
+
+* **Problem:** laptop speakers have "highly unequal frequency response" as audio professional would say.  Normal people say: "they sound very bad".
+* **Theory:** equalizing provides a valuable workaround, dramatically improving sound quality with a one-time effort.  Laptop speakers needs heavy equalization, which is not needed by regular stereo or headphones.
+* **Practical (partial) solution:** use [pulseaudio-equalizer](https://launchpad.net/~nilarimogard/+archive/webupd8)
+* **Remaining problem:** when switching between laptop speakers and audio line out (concretely, plugging your external stereo or headphones on the jack), equalization needs to be switched on and off or adjusted.
+* **Solution:** this program automatically switches equalization profile based on active output.
 
 ## Installation ##
 To use it you have to add the following line to `/etc/pulse/default.pa`:
