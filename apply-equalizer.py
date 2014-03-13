@@ -16,6 +16,7 @@ if not os.path.isdir(config_dir):
 eq_config_path = os.path.join(xdg_config_home, 'pulse', 'equalizerrc')
 
 def get_bus_address():
+	""" lookup PA address """
 	return dbus.SessionBus()\
 		.get_object(
 			'org.PulseAudio1', 
@@ -26,15 +27,17 @@ def get_bus_address():
 			dbus_interface=dbus.PROPERTIES_IFACE
 		)
 
-
-def connect(srv_addr=None):
-	""" 
-	"""
-	# wait for pulseaudio start
+def wait_for_pulseaudio ():
+	""" wait for pulseaudio start (possibly forever) """
 	while call(['pulseaudio', '--check']) == 1:
 		print ('pulseaudio is not running, retry...')
 		sleep(1)
-	
+
+def connect(srv_addr=None):
+	"""
+	load dbus-module into PA, lookup address and connect to the dbus interface
+	"""
+		
 	# load dbus-module if not loaded already
 	if call('pactl list modules short | grep module-dbus-protocol', shell=True) == 1:
 		print('load dbus-module into PA')
@@ -57,6 +60,7 @@ def init ():
 	""" connect to PA-DBus, set up event listeners and configure default sink eq """
 	global bus, core
 	# connect to pulseaudio dbus
+	wait_for_pulseaudio()
 	bus = connect()
 	core = bus.get_object(object_path='/org/pulseaudio/core1')
 	bus.call_on_disconnection(on_disconnect)
