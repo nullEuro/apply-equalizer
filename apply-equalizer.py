@@ -5,7 +5,7 @@
 import dbus, os
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GObject
-from subprocess import call
+from subprocess import call, check_call
 from time import sleep
 from xdg.BaseDirectory import *
 
@@ -27,21 +27,65 @@ def get_bus_address():
 		)
 
 
-def get_bus(srv_addr=None, restart_pulseaudio=True):
-	attempt=1
+def connect(srv_addr=None):
+	""" 
+	"""
+	# wait for pulseaudio start
+	while call(['pulseaudio', '--check']) == 1:
+		print ('pulseaudio is not running, retry...')
+		sleep(1)
+	
+	# load dbus-module if not loaded already
+	if call('pactl list modules short | grep module-dbus-protocol', shell=True) == 1:
+		print('load dbus-module into PA')
+		check_call(['pactl', 'load-module', 'module-dbus-protocol'])
+	
 	while not srv_addr:
 		try:
 			srv_addr = get_bus_address()
-			print('Got pa-server bus from dbus: {}'.format(srv_addr))
+			print('Got pa-server address from dbus: {}'.format(srv_addr))
 		except dbus.exceptions.DBusException as err:
-			print(err)
 			if err.get_dbus_name() != 'org.freedesktop.DBus.Error.ServiceUnknown':
 				raise
-		attempt += 1
-		if attempt > 10 and restart_pulseaudio:
-			call (['pulseaudio', '-k'])
-		sleep(1)
+			print('cannot look up address!')
+		sleep(1)	
+	
 	return dbus.connection.Connection(srv_addr)
+
+
+def init ():
+	""" connect to PA-DBus, set up event listeners and configure default sink eq """
+	global bus, core
+	# connect to pulseaudio dbus
+	bus = connect()
+	core = bus.get_object(object_path='/org/pulseaudio/core1')
+	bus.call_on_disconnection(on_disconnect)
+	
+	# listen for port change events i.e. headphone is plugged in or out
+	bus.add_signal_receiver(on_port_change, 'ActivePortUpdated')
+	core.ListenForSignal('org.PulseAudio.Core1.Device.ActivePortUpdated', dbus.Array(signature='o'))
+	
+	configure_default_sink()
+	
+	print('connected to pulseaudio')
+	
+def configure_default_sink():
+	""" activates eq conf for current active sink """
+	# activate profile for current audio device and port
+	fb_sink_addr = core.Get('org.PulseAudio.Core1', 'FallbackSink', dbus_interface=dbus.PROPERTIES_IFACE)
+	fb_sink = bus.get_object(object_path=fb_sink_addr)
+	fb_sink_name = getName(fb_sink, 'Device')
+	try:
+		port_addr = fb_sink.Get('org.PulseAudio.Core1.Device', 'ActivePort', dbus_interface=dbus.PROPERTIES_IFACE)
+		port = bus.get_object(object_path=port_addr)
+		port_name = port.Get('org.PulseAudio.Core1.DevicePort', 'Name', dbus_interface=dbus.PROPERTIES_IFACE)
+		activate_profile(fb_sink_name, port_name)
+	except dbus.exceptions.DBusException as e:
+		print ("current device has no ports!")
+
+def on_disconnect (con):
+	print ('disconnected from pulseaudio, try to reconnect...')
+	init()
 
 
 def on_port_change(port_addr):
@@ -62,6 +106,7 @@ def getName (obj, itf):
 				'Name', dbus_interface=dbus.PROPERTIES_IFACE)
 
 def make_conf_path(sink_name, port_name):
+	""" get path to port-specific eq conf """
 	return os.path.join(config_dir, sink_name, port_name, 'equalizerrc')
 
 
@@ -95,24 +140,6 @@ def activate_profile(sink_name, port_name):
 DBusGMainLoop(set_as_default=True)
 loop = GObject.MainLoop()
 
-# connect to pulseaudio dbus
-bus = get_bus()
-core = bus.get_object(object_path='/org/pulseaudio/core1')
-
-# activate profile for current audio device and port
-fb_sink_addr = core.Get('org.PulseAudio.Core1', 'FallbackSink', dbus_interface=dbus.PROPERTIES_IFACE)
-fb_sink = bus.get_object(object_path=fb_sink_addr)
-fb_sink_name = getName(fb_sink, 'Device')
-try:
-	port_addr = fb_sink.Get('org.PulseAudio.Core1.Device', 'ActivePort', dbus_interface=dbus.PROPERTIES_IFACE)
-	port = bus.get_object(object_path=port_addr)
-	port_name = port.Get('org.PulseAudio.Core1.DevicePort', 'Name', dbus_interface=dbus.PROPERTIES_IFACE)
-	activate_profile(fb_sink_name, port_name)
-except dbus.exceptions.DBusException as e:
-	print ("current device has no ports!")
-
-# listen for port change events i.e. headphone is plugged in or out
-bus.add_signal_receiver(on_port_change, 'ActivePortUpdated')
-core.ListenForSignal('org.PulseAudio.Core1.Device.ActivePortUpdated', dbus.Array(signature='o'))
+init()
 
 loop.run()

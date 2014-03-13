@@ -14,13 +14,8 @@ It started on [pulseaudio - Automatically switch equalizer preset based on audio
 * **Solution:** this program automatically switches equalization profile based on active output.
 
 ## Installation ##
-To use it you have to add the following line to `/etc/pulse/default.pa`:
 
-    load-module module-dbus-protocol
-
-Restart pulseaudio: `pulseaudio -k` (as user)
-
-Then disable the equalizer via `pulseaudio-equalizer-gtk` and click on "Apply settings", now close the GUI.
+Disable the equalizer via `pulseaudio-equalizer-gtk` and click on "Apply settings", now close the GUI.
 
 Download this repository, change to the directory and run
 
