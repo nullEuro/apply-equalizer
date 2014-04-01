@@ -13,6 +13,8 @@ config_dir = os.path.join(xdg_config_home, 'apply-equalizer')
 if not os.path.isdir(config_dir):
 	os.mkdir(config_dir)
 
+debounceTime = 600 # milliseconds
+
 eq_config_path = os.path.join(xdg_config_home, 'pulse', 'equalizerrc')
 
 def get_bus_address():
@@ -68,7 +70,7 @@ def init ():
 	# listen for port change events i.e. headphone is plugged in or out
 	bus.add_signal_receiver(on_port_change, 'ActivePortUpdated')
 	core.ListenForSignal('org.PulseAudio.Core1.Device.ActivePortUpdated', dbus.Array(signature='o'))
-	
+		
 	configure_default_sink()
 	
 	print('connected to pulseaudio')
@@ -90,9 +92,39 @@ def configure_default_sink():
 def on_disconnect (con):
 	print ('disconnected from pulseaudio, try to reconnect...')
 	init()
+	
+class State:
+	Clear, EventOccurred, End = range(3)
+
+burstState = State.Clear
+def end_burst():
+	""" apply last detected port change after some elapsed time """
+	global burstState
+	print ("queue drained!")
+	if burstState == State.EventOccurred:
+		print ("event occurred, wait a bit...")
+		burstState = State.End
+		# give the event queue some time to collect more events
+		sleep(debounceTime/1000)
+		return True
+	elif burstState == State.End:
+		print ("now apply")
+		apply_port_change(lastPortAddr)
+		burstState = State.Clear
+		return False
 
 
+lastPortAddr=None
 def on_port_change(port_addr):
+	""" save last port change """
+	global burstState, lastPortAddr
+	if burstState == State.Clear:
+		GObject.idle_add(end_burst)
+	burstState = State.EventOccurred
+	lastPortAddr = port_addr
+	
+
+def apply_port_change(port_addr):
 	sink_addr = os.path.dirname(port_addr)
 	sink = bus.get_object(object_path=sink_addr)
 	sink_name = getName(sink, 'Device')
