@@ -13,7 +13,7 @@ config_dir = os.path.join(xdg_config_home, 'apply-equalizer')
 if not os.path.isdir(config_dir):
 	os.mkdir(config_dir)
 
-debounceTime = 600 # milliseconds
+debounceTime = 50 # milliseconds
 
 eq_config_path = os.path.join(xdg_config_home, 'pulse', 'equalizerrc')
 
